@@ -918,9 +918,14 @@
       };
 
       // Auto-restart on end so continuous mode survives Chrome's auto-stops.
+      // Defer slightly so the previous session is fully torn down before start().
       recognition.onend = () => {
         if (!isListening) return;
-        try { recognition.start(); } catch(_) { /* already running, ignore */ }
+        setTimeout(() => {
+          if (!isListening) return;
+          try { recognition.start(); }
+          catch (err) { console.warn('auto-restart failed:', err); }
+        }, 120);
       };
       return true;
     }
@@ -976,16 +981,31 @@
       try {
         await ensureMicPermission();
       } catch (e) {
-        showError("Microphone access denied. Allow it in your browser settings.");
+        console.warn('mic permission error:', e);
+        showError("Microphone access denied. Click the lock icon in your address bar and allow it.");
         return;
       }
 
+      // Always rebuild the recognition object to avoid stale-state errors
+      // (Chrome throws InvalidStateError if start() is called on a not-fully-
+      // ended session).
+      recognition = null;
+      if (!initRecognition()) return;
+
       isListening = true;
-      try { recognition.start(); }
-      catch(e) { recognition = null; if (initRecognition()) recognition.start(); }
       setOrbState('listening');
       setStatus('Listening — tap orb to stop', 'listening');
       setTranscript('');
+
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('recognition.start() failed:', e);
+        showError("Couldn't start the mic: " + e.message + ". Try refreshing the page.");
+        isListening = false;
+        setOrbState('');
+        setStatus('Tap the orb to start listening', 'muted');
+      }
     }
     function stopListening() {
       isListening = false;
