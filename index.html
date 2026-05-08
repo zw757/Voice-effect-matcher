@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceMatch</title>
+  <style>
+    :root {
+      --bg: #f4f5f8;
+      --card: #ffffff;
+      --card-back: #fbfbfd;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --text-tertiary: #9b9ba3;
+      --hint: #7aa6d6;
+      --hint-soft: #c5dcef;
+      --border: rgba(15, 15, 30, 0.06);
+      --pill-bg: #f3f3f6;
+      --accent: #ff5e9e;
+      --accent-soft: #ffe1ec;
+      --shadow-card: 0 1px 2px rgba(20, 20, 40, 0.04), 0 12px 40px rgba(20, 20, 40, 0.06);
+      --shadow-card-back: 0 8px 24px rgba(20, 20, 40, 0.04);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+      min-height: 100vh;
+      letter-spacing: -0.01em;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 48px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .card-stack, .result, .history { width: 100%; }
+
+    /* ─── Title ─── */
+    .title-row {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--text);
+    }
+
+    /* ─── Layered card ─── */
+    .card-stack {
+      position: relative;
+      margin: 0 auto;
+    }
+    .card-back {
+      position: absolute;
+      top: -14px; left: 18px; right: 18px;
+      height: 100%;
+      background: var(--card-back);
+      border-radius: 28px;
+      box-shadow: var(--shadow-card-back);
+      z-index: 0;
+    }
+    .card-front {
+      position: relative;
+      background: var(--card);
+      border-radius: 28px;
+      box-shadow: var(--shadow-card);
+      padding: 28px 24px 20px;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    /* ─── Orb ─── */
+    .orb-wrap {
+      position: relative;
+      width: 100%;
+      height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .orb {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      pointer-events: none;
+    }
+    .orb .blob {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      filter: blur(34px);
+      mix-blend-mode: multiply;
+      opacity: 0.9;
+      transition: background 0.8s ease, opacity 0.6s ease;
+      will-change: transform, opacity;
+    }
+    /* Default — soft pink */
+    .orb .blob:nth-child(1) {
+      background: radial-gradient(circle at 30% 32%, #ff8fbc 0%, rgba(255,143,188,0) 62%);
+      animation: morph1 9s ease-in-out infinite;
+    }
+    .orb .blob:nth-child(2) {
+      background: radial-gradient(circle at 70% 55%, #ff5e9e 0%, rgba(255,94,158,0) 60%);
+      animation: morph2 11s ease-in-out infinite;
+    }
+    .orb .blob:nth-child(3) {
+      background: radial-gradient(circle at 50% 75%, #ffc4dc 0%, rgba(255,196,220,0) 70%);
+      animation: morph3 13s ease-in-out infinite;
+    }
+
+    @keyframes morph1 {
+      0%, 100% { transform: scale(1) translate(0,0) rotate(0); }
+      50%      { transform: scale(1.08) translate(-6px, 4px) rotate(40deg); }
+    }
+    @keyframes morph2 {
+      0%, 100% { transform: scale(0.96) translate(0,0) rotate(0); }
+      50%      { transform: scale(1.06) translate(8px, -4px) rotate(-30deg); }
+    }
+    @keyframes morph3 {
+      0%, 100% { transform: scale(1.02) translate(0,0) rotate(0); }
+      50%      { transform: scale(0.94) translate(-4px, -6px) rotate(20deg); }
+    }
+
+    /* Listening — more vibrant, faster */
+    .orb-wrap.listening .orb .blob {
+      animation-duration: 3.5s, 4s, 4.5s;
+    }
+    .orb-wrap.listening .orb .blob:nth-child(1) {
+      background: radial-gradient(circle at 30% 32%, #ff4d8a 0%, rgba(255,77,138,0) 60%);
+    }
+    .orb-wrap.listening .orb .blob:nth-child(2) {
+      background: radial-gradient(circle at 70% 55%, #ff2e7e 0%, rgba(255,46,126,0) 58%);
+    }
+
+    /* Processing — blue/violet shift */
+    .orb-wrap.processing .orb .blob:nth-child(1) {
+      background: radial-gradient(circle at 30% 32%, #b4a4ff 0%, rgba(180,164,255,0) 62%);
+    }
+    .orb-wrap.processing .orb .blob:nth-child(2) {
+      background: radial-gradient(circle at 70% 55%, #8aa9ff 0%, rgba(138,169,255,0) 60%);
+    }
+    .orb-wrap.processing .orb .blob:nth-child(3) {
+      background: radial-gradient(circle at 50% 75%, #d2c5ff 0%, rgba(210,197,255,0) 70%);
+    }
+    .orb-wrap.processing .orb .blob {
+      animation-duration: 2.5s, 3s, 3.5s;
+    }
+
+    /* Playing — green-cyan happy */
+    .orb-wrap.playing .orb .blob:nth-child(1) {
+      background: radial-gradient(circle at 30% 32%, #7dd3c8 0%, rgba(125,211,200,0) 60%);
+    }
+    .orb-wrap.playing .orb .blob:nth-child(2) {
+      background: radial-gradient(circle at 70% 55%, #5fb8e0 0%, rgba(95,184,224,0) 60%);
+    }
+    .orb-wrap.playing .orb .blob:nth-child(3) {
+      background: radial-gradient(circle at 50% 75%, #b9e5dd 0%, rgba(185,229,221,0) 70%);
+    }
+    .orb-wrap.playing .orb .blob {
+      animation-duration: 1.6s, 2s, 2.4s;
+    }
+
+    .orb-wrap:hover .orb { transform: scale(1.02); transition: transform 0.3s ease; }
+    .orb-wrap:active .orb { transform: scale(0.98); }
+
+    /* ─── Status under orb ─── */
+    .status {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--hint);
+      min-height: 26px;
+      margin: 8px 0 14px;
+      transition: color 0.3s;
+    }
+    .status.muted { color: var(--text-tertiary); font-weight: 400; }
+    .status.listening { color: var(--accent); }
+    .status.processing { color: #8a7dff; }
+
+    /* ─── Transcript ─── */
+    .transcript {
+      text-align: center;
+      font-size: 15px;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      line-height: 1.45;
+      min-height: 22px;
+      margin-bottom: 18px;
+      padding: 0 8px;
+      word-break: break-word;
+    }
+    .transcript:empty::before {
+      content: '';
+    }
+
+    /* ─── Pill input ─── */
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--pill-bg);
+      border-radius: 100px;
+      padding: 6px 6px 6px 6px;
+    }
+    .pill-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--card);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.18s, color 0.18s, transform 0.18s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .pill-btn:hover { color: var(--text); }
+    .pill-btn:active { transform: scale(0.92); }
+    .pill-btn svg { width: 16px; height: 16px; }
+
+    .pill-btn.send {
+      background: var(--accent);
+      color: white;
+    }
+    .pill-btn.send:hover { background: #ff4d8a; }
+    .pill-btn.send:disabled {
+      background: #e5e5ea;
+      color: var(--text-tertiary);
+      cursor: not-allowed;
+    }
+
+    .pill-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      padding: 6px 4px;
+    }
+    .pill-input::placeholder { color: var(--text-tertiary); }
+
+    /* ─── Result card ─── */
+    .result {
+      margin-top: 20px;
+      background: var(--card);
+      border-radius: 22px;
+      box-shadow: var(--shadow-card);
+      padding: 22px 22px 20px;
+      display: none;
+    }
+    .result.visible {
+      display: block;
+      animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .result { text-align: center; }
+    .result-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .result-name {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .result-reason {
+      font-size: 14px;
+      color: var(--text-secondary);
+      letter-spacing: -0.005em;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .result-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border-radius: 100px;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.18s, transform 0.18s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--text); color: var(--card); }
+    .btn-primary:hover { background: #2c2c2e; }
+    .btn-secondary { background: var(--accent-soft); color: var(--accent); }
+    .btn-secondary:hover { background: #ffd0e1; }
+    .btn svg { width: 12px; height: 12px; }
+
+    /* ─── Audio bars ─── */
+    .audio-bars {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 22px;
+    }
+    .audio-bars span {
+      display: block;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      height: 6px;
+    }
+    .audio-bars.playing span { animation: bounce 0.65s ease-in-out infinite; }
+    .audio-bars span:nth-child(1) { animation-delay: 0s; }
+    .audio-bars span:nth-child(2) { animation-delay: 0.1s; }
+    .audio-bars span:nth-child(3) { animation-delay: 0.2s; }
+    .audio-bars span:nth-child(4) { animation-delay: 0.05s; }
+    @keyframes bounce {
+      0%, 100% { height: 6px; }
+      50% { height: 20px; }
+    }
+
+    /* ─── Loading dots ─── */
+    .loading { display: inline-flex; gap: 5px; align-items: center; }
+    .loading span {
+      width: 6px; height: 6px;
+      background: var(--text-tertiary);
+      border-radius: 50%;
+      animation: dot 1s ease-in-out infinite;
+    }
+    .loading span:nth-child(2) { animation-delay: 0.15s; }
+    .loading span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dot {
+      0%, 100% { opacity: 0.3; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-3px); }
+    }
+
+    /* ─── Error ─── */
+    .error {
+      display: none;
+      background: #fff2f4;
+      color: #d83a52;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin: 16px 0 0;
+      letter-spacing: -0.005em;
+    }
+
+    /* ─── History ─── */
+    .history {
+      margin-top: 22px;
+      display: none;
+    }
+    .history.visible { display: block; }
+    .history-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 500;
+      padding: 0 8px 10px;
+      text-align: center;
+    }
+    .history-list {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 6px;
+      box-shadow: var(--shadow-card-back);
+      display: flex;
+      flex-direction: column;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .history-item:hover { background: var(--bg); }
+    .history-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffc4dc, #ff8fbc);
+      flex-shrink: 0;
+    }
+    .history-text { flex: 1; min-width: 0; }
+    .history-quote {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: -0.005em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-sound {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    /* ─── Caption ─── */
+    .caption {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 13px;
+      color: var(--text-tertiary);
+      letter-spacing: -0.005em;
+      line-height: 1.5;
+    }
+    .caption a { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
+    .caption a:hover { text-decoration-color: var(--text-tertiary); }
+
+  </style>
+</head>
+<body>
+  <main class="container">
+    <div class="title-row">
+      <div class="title">VoiceMatch</div>
+    </div>
+
+    <div class="card-stack">
+      <div class="card-back" aria-hidden="true"></div>
+      <div class="card-front">
+
+        <!-- Orb (click to listen) -->
+        <div class="orb-wrap" id="orbWrap" role="button" tabindex="0" aria-label="Tap to start listening">
+          <div class="orb">
+            <div class="blob"></div>
+            <div class="blob"></div>
+            <div class="blob"></div>
+          </div>
+        </div>
+
+        <div class="status muted" id="status">Tap the orb to start listening</div>
+        <div class="transcript" id="transcript"></div>
+
+        <!-- Pill input -->
+        <form class="pill" id="textForm" autocomplete="off">
+          <button type="button" class="pill-btn" id="micPillBtn" aria-label="Toggle voice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="12" rx="3"/>
+              <path d="M5 11a7 7 0 0 0 14 0"/>
+              <path d="M12 18v3"/>
+            </svg>
+          </button>
+          <input
+            type="text"
+            class="pill-input"
+            id="textInput"
+            placeholder="Or type to share with AI…"
+            maxlength="200"
+            aria-label="Type a phrase"
+          />
+          <button type="submit" class="pill-btn send" id="sendBtn" aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14"/>
+              <path d="M13 6l6 6-6 6"/>
+            </svg>
+          </button>
+        </form>
+
+        <div class="error" id="error"></div>
+
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result" id="result">
+      <div class="result-label">Matched sound</div>
+      <h2 class="result-name" id="resultName"></h2>
+      <p class="result-reason" id="resultReason"></p>
+      <div class="result-actions">
+        <button class="btn btn-primary" id="playBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          Play again
+        </button>
+        <a class="btn btn-secondary" id="sourceBtn" href="#" target="_blank" rel="noopener">View source</a>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history" id="historyCard">
+      <div class="history-label">Recent</div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
+    <p class="caption">
+      Speak or type — the orb finds the perfect sound.<br>
+      Sounds via <a href="https://soundbuttonsworld.com" target="_blank" rel="noopener">soundbuttonsworld.com</a>
+    </p>
+  </main>
+
+  <script>
+    // ─── Sound library (verified soundbuttonsworld file UUIDs) ───────────────
+    const SOUND_BASE = "https://soundbuttonsworld.com/sounds/";
+    const PAGE_BASE  = "https://soundbuttonsworld.com/sound-button/";
+
+    // Sound library — ordered by sounds.md priority for tie-break behaviour:
+    // Vine Boom > Bruh > Are You Serious > Wet Fart > Goofy Ahh > everything else.
+    // Each sound carries a `keywords` list (single tokens, +1 score each) and a
+    // `phrases` list (multi-word, +5 each). Direct sound-name mention = +12.
+    const SOUNDS = [
+      { name: "Vine Boom", slug: "vine-boom-1668034229162", file: "707db471-c834-494e-a3d9-ada985203ef6.mp3",
+        trigger: "Dramatically shocking news, big unexpected reveal, or wild statement out of nowhere",
+        reason: "That deserves a boom.",
+        keywords: ["boom","shocked","shocking","drama","dramatic","reveal","unexpected","suddenly","crazy","wild","insane"],
+        phrases: ["quit my job","got fired","she said yes","he said yes","broke up","broke up with","got dumped","dumped me","server is down","server crashed","out of money","going broke","i'm pregnant","she's pregnant","got married","we got engaged","passed away","got the news","huge news"]
+      },
+      { name: "Bruh", slug: "bruh-1664311555876", file: "96c4a22c-f139-4d46-83d8-2333c8710a54.mp3",
+        trigger: "Something stupid, obvious, mildly disappointing, or painfully unimpressive",
+        reason: "Yeah… bruh.",
+        keywords: ["bruh","ugh","again","obvious","duh","smh","dumb","stupid"],
+        phrases: ["forgot my password","forgot the password","slept through my alarm","slept through it","earth is flat","earth might be flat","earth is round","forgot my homework","missed the bus","ran out of battery","phone died","dropped my phone","locked myself out","my fault again"]
+      },
+      { name: "Are You Serious Right Now", slug: "are-you-serious-right-now-bro-1671196733053", file: "14e4d50e-9fa7-4d8b-aedb-57675b05e6cb.mp3",
+        trigger: "Unbelievably dumb decision or something that should not be said out loud",
+        reason: "An appropriate level of disbelief.",
+        keywords: ["serious","kidding","really"],
+        phrases: ["replied all","reply all","told my boss","told my boss off","forgot her birthday","forgot his birthday","forgot our anniversary","sent it to the group","deleted the database","didn't save","closed without saving","pushed to main","pushed to prod","force pushed","lost the file","didn't back up"]
+      },
+      { name: "Wet Fart Meme", slug: "wet-fart-meme-1642465710796", file: "f542df79-a176-492e-98b0-4f683788728a.mp3",
+        trigger: "A lame take, bad joke, weak excuse, terrible idea, or embarrassing opinion",
+        reason: "That take stinks.",
+        keywords: ["lame","weak","terrible","awful","mid","mediocre","cringe","corny"],
+        phrases: ["my excuse","my excuse is","pineapple pizza is bad","i don't like dogs","don't really like dogs","my hot take","actually i prefer","i hate dogs","i hate cats","i hate music","tea is better than coffee","fart","farted"]
+      },
+      { name: "Goofy Ahh Sounds", slug: "goofy-ahh-sounds-1668035277484", file: "fb64d9f6-7584-4a3f-930b-ba6094d37fd5.mp3",
+        trigger: "Something absurd, chaotic, or cartoonishly weird that makes no sense",
+        reason: "Pure goofy ahh.",
+        keywords: ["goofy","absurd","wacky","random","bonkers","cartoonish"],
+        phrases: ["ate soap","fight a pigeon","fought a pigeon","don't believe in gravity","talked to a tree","argued with a rock","ate a rock","punched a wall","ate dirt","named my plant","talk to my plants"]
+      },
+      { name: "Goofy Ahh Laugh", slug: "goofy-ahh-laugh-1668034461376", file: "8db42d7e-b714-4220-98c1-431c0a04ecb0.mp3",
+        trigger: "Something funny, a joke, or unintentionally hilarious moment",
+        reason: "Comedy gold.",
+        keywords: ["funny","hilarious","joke","comedy","hysterical","ridiculous"],
+        phrases: ["walked into a glass door","walked into the door","called the teacher mom","told my boss to relax","accidentally said","fell down the stairs","tripped on","slipped on a banana"]
+      },
+      { name: "Sad Violin", slug: "sad-violin-1642637531345", file: "a8379e2a-b401-4c52-8919-218cd5eea95e.mp3",
+        trigger: "Pathetic, self-pitying, minor failure, or complaining about a tiny problem",
+        reason: "Cue the violins.",
+        keywords: ["sad","lonely","alone","depressed","pathetic","miss","missing","miserable","crying","sob","sigh","heartbroken","upset"],
+        phrases: ["no one liked","got friend zoned","friend zoned","coffee went cold","coffee got cold","finished the show","got rejected","miss my dog","miss my cat","miss my ex","i'm alone","im alone","nobody loves me","wifi is slow","bad day"]
+      },
+      { name: "Ahhhhh!", slug: "ahhhhh-1663858639507", file: "f79c30ab-003b-48ea-af96-b131c00ecddb.mp3",
+        trigger: "Impressive, hype-worthy, great comeback, big win, or compliment",
+        reason: "Hype unlocked.",
+        keywords: ["amazing","amazed","incredible","incredibly","awesome","wow","hype","epic","wonderful","excellent","fantastic","killed it","slayed","slay"],
+        phrases: ["got promoted","got the job","won the championship","finished my project","i finally","you look amazing","that's incredible","we won","first place","went viral","aced the test","aced it","passed the exam"]
+      },
+      { name: "Stop the Cap", slug: "stop-the-cap-1670611694609", file: "67e45010-f4c7-4e92-8ec2-5f5a601ec470.mp3",
+        trigger: "Exaggerated, unbelievable, or a flex that seems fake",
+        reason: "Stop the cap.",
+        keywords: ["cap","lying","fake","exaggerated","bullshit","bs","capping","sus"],
+        phrases: ["no cap","literally never","i never lose","i never get nervous","i always win","every single time","i'm the best at","i'm always right","never wrong","barely tried","didn't even try"]
+      },
+      { name: "Rick Roll", slug: "rick-roll-1664559657700", file: "a5598bcd-98d9-4899-8ef0-c44c28db7137.mp3",
+        trigger: "Sets up a bait-and-switch, makes a promise, or mentions sharing a link/video/song",
+        reason: "Never gonna give you up.",
+        keywords: ["link","video","song","music","share","watch","listen","rickroll"],
+        phrases: ["check this out","click this link","send you a link","here's the video","here's the song","you have to see this","watch this","listen to this song","i'll send you","the surprise","i promise","check out this"]
+      },
+      { name: "I Woke Up In A New Bugatti", slug: "i-woke-up-in-a-new-bugatti-lo-1680188710530", file: "bb7a8fe7-a907-4d9e-9d6d-60dd415461fd.mp3",
+        trigger: "Money, luxury, big purchase, flexing, being rich, or winning big",
+        reason: "Big flex detected.",
+        keywords: ["rich","luxury","expensive","fancy","bugatti","ferrari","lambo","mansion","vegas","bonus","lottery","millionaire","wealthy","loaded","stacked","drip"],
+        phrases: ["got paid","got a bonus","going to vegas","won the lottery","new car","new shoes","new watch","new phone","i'm rich","im rich","flexing","rolex","new mac","new iphone","first class"]
+      },
+      { name: "Apple Pay", slug: "apple-pay-1747322427448", file: "e18e43d0-48a1-4938-b5ea-ddad94c24083.mp3",
+        trigger: "Spending money, paying for something, transactions, or buying anything",
+        reason: "Apple Pay says yes.",
+        keywords: ["pay","paid","bought","buy","purchase","spend","spent","charge","checkout","venmo","zelle","cashapp","tap"],
+        phrases: ["bought it","just paid","split the bill","on my card","tap to pay","checked out","that'll be","swipe my card","apple pay","use my card","ka-ching","at the register"]
+      },
+      { name: "We Do Not Care", slug: "we-do-not-care-1670161970808", file: "ab48a9f6-5007-4dac-a55d-6362677e40d6.mp3",
+        trigger: "Unsolicited opinion, something nobody asked for, or pointless overshare",
+        reason: "We do not care.",
+        keywords: ["actually","personally","honestly","whatever","unbothered"],
+        phrases: ["actually i prefer","actually i think","in my opinion","tabs over spaces","spaces over tabs","don't even use social media","don't even own a tv","i think pineapple","personally i think","vim over emacs","emacs over vim","android over iphone","nobody asked","didn't ask"]
+      },
+      { name: "FBI Open Up", slug: "fbi-open-up-button-1642297418751", file: "6a54d171-0f9c-48ce-84ad-c7fd7cf1c73d.mp3",
+        trigger: "Suspicious, secretly embarrassing, or a confession they shouldn't be making",
+        reason: "FBI, open up.",
+        keywords: ["fbi","illegal","suspicious","secret","stalking","stalker","cops","police","prison","crime","sus"],
+        phrases: ["haven't paid taxes","haven't filed taxes","internet explorer","been watching them","been watching her","been watching him","hid the body","killed someone","broke the law","i steal","shoplifted","wanted by the","under the radar"]
+      },
+      { name: "And His Name Is John Cena", slug: "and-his-name-is-john-cena-1642465366791", file: "f9014786-156e-43e9-aaf4-593bcefd729d.mp3",
+        trigger: "Dramatic reveal, announcement, building anticipation, 'the winner is...'",
+        reason: "And his name is...",
+        keywords: ["announce","introduce","reveal","winner","drumroll"],
+        phrases: ["the answer is","the winner is","let me introduce","and his name is","drumroll please","drumroll","who did it","the person responsible","ladies and gentlemen","let me tell you who","the culprit"]
+      },
+      { name: "Fortnite Default Dance", slug: "fortnite-default-dance-1666033249120", file: "939f1050-5855-470d-9630-5637dd080435.mp3",
+        trigger: "Achieved something they're overly excited about, celebration, minor win",
+        reason: "Default dance time.",
+        keywords: ["finally","victory","celebrate","celebration","yay","yes","yesss","gg","poggers","clutch"],
+        phrases: ["first try","i did it","i made it","beat the level","made the green light","passed the test","leveled up","got the high score","finally beat","cleared it","got the W"]
+      },
+      { name: "Taco Bell Bong", slug: "taco-bell-bong-1663184624955", file: "b21e3cba-d89c-4a55-bfad-cacf2487832d.mp3",
+        trigger: "Fast food, late night food runs, junk food cravings, low-effort meal decision",
+        reason: "Bong.",
+        keywords: ["taco","tacos","burrito","mcdonalds","fries","burger","wendys","kfc","starve","starving","dominos","chipotle","quesadilla","nuggets","snack","snacks","hungry","craving","munchies"],
+        phrases: ["taco bell","fast food","drive thru","drive-through","2am hungry","midnight snack","ordering pizza","want some fries","i'm starving","im starving","late night munchies","late-night run"]
+      },
+      { name: "Rizz", slug: "rizz-1678441402536", file: "ffa7ea14-e5ae-44ca-b9ee-6830d0e4bee7.mp3",
+        trigger: "Smooth, confident, flirty, or unironically cool moment",
+        reason: "Pure rizz energy.",
+        keywords: ["rizz","smooth","flirt","flirty","flirting","charm","charisma","suave","sigma","gigachad","aura"],
+        phrases: ["asked for her number","asked her out","winked at","told her she","got her number","got his number","shot my shot","we kissed","she's into me","he's into me","slid into the dms"]
+      },
+      { name: "Kahoot", slug: "kahoot-1673619431105", file: "5e9c62cc-4b82-44f8-bb65-0bc5d8b72eae.mp3",
+        trigger: "Correct answer, factual statement, or trivia-style fact",
+        reason: "Correct.",
+        keywords: ["kahoot","correct","trivia","quiz"],
+        phrases: ["the capital of","boils at 100","mitochondria is the","100 degrees","hundred degrees","fun fact","did you know","i got it right","right answer","that's the answer"]
+      },
+      { name: "Emotional", slug: "emotional-1672865586532", file: "9fbc5560-4de7-49d6-a35d-73959f15fbb3.mp3",
+        trigger: "Genuinely touching, heartfelt, nostalgic, or unexpectedly wholesome",
+        reason: "Right in the feels.",
+        keywords: ["emotional","touching","heartfelt","nostalgic","wholesome","grandma","grandpa","memories","childhood"],
+        phrases: ["miss my grandma","miss my grandpa","made me cry","proud of how","i love my mom","i love my dad","grew up with","such a good kid","such a good dog","rest in peace","raised me","tear in my eye"]
+      },
+      { name: "Get Out Tuco", slug: "get-out-tuco-1713706345464", file: "92116289-98e0-4dea-babc-e6f7f8bd08d9.mp3",
+        trigger: "Take that needs to be immediately rejected, shut down, or kicked out",
+        reason: "Get out, Tuco.",
+        keywords: ["leave","shoo","yeet"],
+        phrases: ["mondays are great","love mondays","love traffic","enjoy traffic","milk before cereal","shut up","get out","leave my house","go away","out of here","cereal before milk"]
+      },
+      { name: "Gulp Gulp Gulp Gulp", slug: "gulp-gulp-gulp-gulp-1671088913732", file: "0d81a729-727a-4ed8-948f-a1e2bbd45732.mp3",
+        trigger: "Uncomfortable situation, nervous confession, or being called out",
+        reason: "Gulp.",
+        keywords: ["gulp","nervous","oops","yikes","awkward"],
+        phrases: ["behind me isn't","right behind me","told everyone","wrong person","sent it to the wrong","spilled the secret","they found out","i'm cooked","im cooked","uh oh","caught in 4k","caught me red-handed"]
+      },
+      { name: "Bill Nye Theme Song", slug: "bill-nye-theme-song-1670614984345", file: "af72d5da-ca12-4c9d-8b1a-c6833c517314.mp3",
+        trigger: "Explaining something in an overly educational, nerdy, science-y way",
+        reason: "Bill Nye, the science guy.",
+        keywords: ["science","scientific","physics","chemistry","biology","atoms","molecules","theorem","theory","photosynthesis","evolution","quantum","neurons","mitochondria","ecosystem","gravity","dna"],
+        phrases: ["actually the reason","let me explain how","the science behind","black holes","scientifically speaking","according to physics","chemical reaction","laws of physics","speed of light"]
+      },
+      { name: "Light Skin Stare Song", slug: "light-skin-stare-song-1672180779037", file: "782eff72-eaf8-4f1f-b517-b6031dcff8ee.mp3",
+        trigger: "Deserves a long silent stare — passive aggressive, judging, stonewalling",
+        reason: "*long stare*",
+        keywords: ["stare","silent","silence"],
+        phrases: ["didn't say anything","no reason","it's fine","i'm fine","im not mad","i'm not mad","whatever you think","if that's what you want","do whatever","sure thing","if you say so","do as you please"]
+      },
+      { name: "Tung Tung Tung Sahur", slug: "tung-tung-tung-sahur-1743467493734", file: "0877ca10-d121-4ff0-984b-9f3de126b3e2.mp3",
+        trigger: "Completely unhinged, chaotic, or descends into absolute nonsense",
+        reason: "Tung tung tung.",
+        keywords: ["unhinged","chaos","brainrot","sahur","tung","feral","gremlin"],
+        phrases: ["ate my charger","yelling at a pigeon","sleep schedule is","4am to 4pm","fight a wall","screaming into the void","talking to my plants"]
+      },
+
+      // ─── Expansion pack (added for better coverage) ──────────────────────
+      { name: "Wait What", slug: "wait-what-1669059468952", file: "255f657e-7252-42ae-b44c-e88fd4d356cc.mp3",
+        trigger: "Confusion, double-take, did I hear that right",
+        reason: "Wait, what?",
+        keywords: ["wait","what","huh","confus*","unclear","baffl*","wha","pardon"],
+        phrases: ["wait what","wait wait","did you say","did i hear","run that back","say that again","what did you mean","come again"]
+      },
+      { name: "Sus", slug: "sus-1668729926873", file: "193410bb-3a78-4b88-b2ee-32e2d8dc40be.mp3",
+        trigger: "Something seems suspicious, sketchy, or off",
+        reason: "Sus.",
+        keywords: ["sus","suspicious","sketchy","fishy","shady","sussy"],
+        phrases: ["that's sus","seems sus","kinda sus","something's off","something weird","red flag"]
+      },
+      { name: "Among Us Emergency Meeting", slug: "among-us-emergency-meeting-1642465321284", file: "e2339bb6-0cf1-4aaf-b7bc-0dffd3d4f862.mp3",
+        trigger: "Calling everyone together urgently, demanding answers, or important announcement",
+        reason: "Emergency meeting!",
+        keywords: ["meeting","emergency","urgent","gather","huddle","assemble"],
+        phrases: ["we need to talk","everyone gather","calling a meeting","listen up","family meeting","attention everyone","need to discuss"]
+      },
+      { name: "Among Us Kill", slug: "among-us-kill-1642465334131", file: "ad87872c-f6c0-492e-a34b-9d90d145dfdb.mp3",
+        trigger: "Sudden betrayal, ambush, plot twist, or someone got eliminated",
+        reason: "Vented.",
+        keywords: ["betray*","ambush","backstab*","eliminat*","murder*","stab*"],
+        phrases: ["stabbed in the back","got me good","caught me off","plot twist","didn't see it coming","blindsided me"]
+      },
+      { name: "Error", slug: "error-1669062015100", file: "27ead703-6058-4923-9fbf-6342c84b6684.mp3",
+        trigger: "Something went wrong, broke, glitched, or failed technically",
+        reason: "Error 404.",
+        keywords: ["error","broken","crash*","glitch*","fail*","bug","404","500","busted","kaput"],
+        phrases: ["it broke","it crashed","didn't work","not working","threw an error","blue screen","won't load","stopped working","my code is","this code","build is broken","my pc","my computer"]
+      },
+      { name: "GTA Mission Passed", slug: "gta-san-andreas-mission-passed-1642465402488", file: "fb70808d-8cc7-4359-976d-5a16c46bfbbf.mp3",
+        trigger: "Completed a task, finished a level, accomplished something",
+        reason: "Mission passed — respect +",
+        keywords: ["complete*","accomplish*","achieved","wrapped"],
+        phrases: ["task complete","mission complete","i finished","got it done","wrapped it up","i'm done","cleared the assignment","just shipped","ship it","crossed off the list","off the list"]
+      },
+      { name: "GTA Wasted", slug: "gta-v-wasted-busted-1642465405989", file: "24ceaa92-a59c-4d82-b4f9-b92edb52a6fa.mp3",
+        trigger: "Failed, died, got caught, completely defeated, big L",
+        reason: "Wasted.",
+        keywords: ["wasted","died","defeated","destroyed","ruined","wrecked","cooked","fried"],
+        phrases: ["i died","game over","got busted","got caught","i'm cooked","im cooked","totally wrecked","big L","took an L","took the L","i lost","got dunked on","destroyed me"]
+      },
+      { name: "How About No", slug: "how-about-no-1642638283834", file: "a3d7d748-017f-42f1-a2f4-b79088c568a2.mp3",
+        trigger: "Refusal, hard no, declining strongly",
+        reason: "How about no.",
+        keywords: ["refuse","decline","nope","nah","hell no","heck no"],
+        phrases: ["how about no","absolutely not","hard pass","not a chance","never gonna","aint happening","ain't happening","no way","i refuse","i'm out","im out"]
+      },
+      { name: "Megalovania", slug: "megalovania-1668441809333", file: "7b1627e3-14ea-4811-8a1e-12f99aa0cf8d.mp3",
+        trigger: "Epic battle, intense showdown, throwing down, determination",
+        reason: "It's go time.",
+        keywords: ["fight","battle","duel","showdown","versus","megalovania","undertale","determination","throwdown","beef","smoke"],
+        phrases: ["it's on","throw down","one v one","fight me","come at me","let's go","bring it","square up","catch these hands","run it back"]
+      },
+      { name: "Metal Pipe", slug: "metal-pipe-1678389121899", file: "ecdcfae5-aff2-40ed-8b7d-e506d037e33f.mp3",
+        trigger: "Something dropped, fell, or collapsed loudly",
+        reason: "*metal pipe falling*",
+        keywords: ["dropped","fell","fallen","tripped","collaps*","tumble","slipped"],
+        phrases: ["dropped my","fell off","fell down","knocked over","took a tumble","fell off my chair","slipped on"]
+      },
+      { name: "Roblox Oof", slug: "roblox-oof-1671652372240", file: "abd147fc-7b4b-47e0-ae63-1fad95c47415.mp3",
+        trigger: "Minor pain or harmless setback — stubbed toe, awkward landing, small loss",
+        reason: "Oof.",
+        keywords: ["oof","ouch","ow","ouchie","damn","bonked","bumped"],
+        phrases: ["that hurt","stubbed my toe","ow my","i tripped","banged my","scraped my","hit my head","whacked my"]
+      },
+      { name: "What Da Dog Doin", slug: "what-da-dog-doin-1668525322885", file: "a289e964-1ebc-444a-928b-66ee87693ded.mp3",
+        trigger: "Something genuinely strange happening that you have to point out",
+        reason: "What da dog doin?",
+        keywords: ["weird","strange","bizarre","wtf","wth"],
+        phrases: ["what is happening","why is he doing","why is she doing","this is weird","that's bizarre","what is going on","what's going on","wtf is this","look at this","look at that"]
+      },
+      { name: "Damn Son", slug: "damn-son-where-d-you-find-this-1642637470203", file: "2dca4b09-9d69-441b-ab4c-d70118850992.mp3",
+        trigger: "Surprise discovery, impressive find, or 'where did you get that?!' moment",
+        reason: "Damn son, where'd you find this?",
+        keywords: ["found","discovered","stumbled","crazy"],
+        phrases: ["look what i found","check what i got","you'll never guess","i discovered","found something cool","you have to see","you gotta see"]
+      },
+      { name: "Sitcom Laugh Track", slug: "sitcom-laughter-applause-1642465749170", file: "10778bc1-218b-443b-ba27-a056b6ccc5bd.mp3",
+        trigger: "Wholesome sitcom moment, end of an episode vibe, mild humor",
+        reason: "*audience claps*",
+        keywords: ["sitcom","applause","clap*","cheer*","encore"],
+        phrases: ["the end","that's a wrap","roll credits","laugh track","cue the credits","clap clap"]
+      },
+      { name: "FNAF Music Box", slug: "fnaf-music-box-1-minute-1684885636708", file: "09908544-7642-4385-948a-e3c66961d615.mp3",
+        trigger: "Creepy, ominous, building horror tension, something is watching",
+        reason: "Something is watching you.",
+        keywords: ["creepy","scary","horror","ominous","unsettling","haunted","spooky","eerie","chills"],
+        phrases: ["behind me","being watched","heard a noise","gave me chills","spine chills","creeping me out","gave me the creeps","alone in the dark"]
+      },
+      { name: "Minecraft Eat", slug: "minecraft-eating-1671129126604", file: "959de6f9-0dc7-4f19-a717-96c611032d43.mp3",
+        trigger: "Casually eating, snacking, or relaxed food enjoyment",
+        reason: "*munch munch munch*",
+        keywords: ["eating","ate","snack*","munch*","chew*","bite","biting","nom"],
+        phrases: ["taking a bite","eating my","stuffing my face","having a snack","grabbing a bite","wolfing it down"]
+      },
+      { name: "Discord Join", slug: "discord-join-1661701844870", file: "369142f6-a0ca-4576-9c16-bd29c029931a.mp3",
+        trigger: "Someone arrives, joins, logs in, or enters",
+        reason: "Joined the call.",
+        keywords: ["joined","arrived","entered","login","logged in"],
+        phrases: ["i'm here","just joined","just got here","entered the chat","came online","showed up","arrived at"]
+      },
+      { name: "Bombastic Side Eye", slug: "bombastic-side-eye-1680533858346", file: "294e5eeb-d06a-4e2c-b03d-fb393068d97e.mp3",
+        trigger: "Judgmental side-eye, criminal disrespect, dramatic stare reaction",
+        reason: "Bombastic side eye.",
+        keywords: ["judging","sideeye","disrespect","criminal","offens*"],
+        phrases: ["side eye","giving the look","i'm judging","criminal offense","the audacity","how dare"]
+      },
+      { name: "Bruhhhhh", slug: "bruhhhhh-1683240754252", file: "ba815fff-af35-4724-99ba-80fea8251786.mp3",
+        trigger: "Drawn-out bruh — bigger disappointment, more drawn-out frustration",
+        reason: "Bruhhhhh.",
+        keywords: ["bruhh","bruhhh","bruhhhh","jeez","yikes"],
+        phrases: ["are you kidding me","you have got to be","not again","oh come on","you cannot be serious","cannot be serious"]
+      },
+      { name: "Ohio", slug: "ohio-1675440682680", file: "224b59e6-7c9b-4ac2-822a-4b7ab3bab5c0.mp3",
+        trigger: "Cursed energy, only-in-Ohio chaos, deeply unsettling vibe",
+        reason: "Only in Ohio.",
+        keywords: ["ohio","cursed","skibidi"],
+        phrases: ["only in ohio","ohio energy","this is ohio","very ohio"]
+      },
+
+      // ─── Favorites (boosted in matching) ─────────────────────────────────
+      { name: "Fail Button", slug: "fail-button-1642297417965", file: "275402ab-6172-4944-a01a-32eb0084acb1.mp3",
+        trigger: "Sad-trombone moment — a small failure, missed shot, or 'aw, dang it' flop",
+        reason: "Fail. Trombone descends.",
+        boost: 3,
+        keywords: ["fail*","flop","whiff","strike","miss","missed","blew it","botched","whomp"],
+        phrases: ["didn't work","didnt work","big fail","epic fail","total fail","missed the shot","missed the goal","blew the interview","didn't make it","fell short"]
+      },
+      { name: "Rizz Sound Effect", slug: "rizz-sound-effect-1672180084293", file: "d74c40cc-7fbe-4157-a1e2-071d290e3850.mp3",
+        trigger: "Smooth flex, pickup line, or self-confident charm — variant of Rizz",
+        reason: "W rizz.",
+        boost: 3,
+        keywords: ["rizz","rizzler","sigma","gigachad","mewing"],
+        phrases: ["w rizz","l rizz","unspoken rizz","cooked her","cooked him","i'm him","im him"]
+      },
+      { name: "Indian Music", slug: "indian-1666048064876", file: "70360589-c856-4ad8-94ed-776c988776c5.mp3",
+        trigger: "Bollywood entrance, festive dance moment, sudden vibrant celebration",
+        reason: "Bollywood entrance music.",
+        boost: 3,
+        keywords: ["bollywood","indian","dancing","wedding","henna","desi","bhangra"],
+        phrases: ["dance party","my wedding","at the wedding","entered the room","made an entrance","dance break"]
+      },
+      { name: "Android Beep", slug: "android-beep-1668025154070", file: "cfa1f779-0954-4623-a7db-cc93a703a7f9.mp3",
+        trigger: "Notification, text alert, or any digital ping",
+        reason: "*notification beep*",
+        boost: 3,
+        keywords: ["notification","ping","text","alert","dm","message","beep","buzz","ringtone"],
+        phrases: ["got a text","got a notification","got an email","new message","just got pinged","slack message","slack ping","my phone went off","my phone buzzed"]
+      },
+      { name: "FAAA", slug: "faaa-1764039138098", file: "35f4997a-677c-4e79-a2b8-f33b688d5233.mp3",
+        trigger: "Sudden chaotic outburst, scream of frustration, dramatic gasp",
+        reason: "FAAAA.",
+        boost: 3,
+        keywords: ["scream*","yell*","shriek","aaa","ahh","ahhh","ahhhh","wail*","outburst"],
+        phrases: ["i screamed","i'm screaming","im screaming","wanted to scream","just lost it","losing it","flipped out","freaked out"]
+      },
+    ];
+
+    // Mark the rest of the favorites (already in the library) as boosted.
+    {
+      const FAVORITE_SLUGS = new Set([
+        "metal-pipe-1678389121899",
+        "stop-the-cap-1670611694609",
+        "taco-bell-bong-1663184624955",
+        "goofy-ahh-laugh-1668034461376",
+        "sad-violin-1642637531345",
+        "ahhhhh-1663858639507",
+        "bruh-1664311555876",
+      ]);
+      for (const s of SOUNDS) if (FAVORITE_SLUGS.has(s.slug)) s.boost = 3;
+    }
+
+    // ─── State ────────────────────────────────────────────────────────────────
+    let isListening = false;
+    let recognition = null;
+    let currentAudio = null;
+    const history = [];
+
+    const $ = (id) => document.getElementById(id);
+
+    // ─── Speech recognition ───────────────────────────────────────────────────
+    function initRecognition() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        showError("Speech recognition isn't supported here. Try Chrome, Edge, or Safari, and use the type field.");
+        return false;
+      }
+      recognition = new SR();
+      recognition.continuous = true;       // keep listening until user taps stop
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (e) => {
+        const r = e.results[e.results.length - 1];
+        const text = r[0].transcript.trim();
+        setTranscript(text);
+        if (r.isFinal && text) {
+          // Sentence finished — fire matcher 500ms later. Listening continues.
+          scheduleMatch(text);
+        }
+      };
+
+      recognition.onerror = (e) => {
+        // Don't kill the session on transient errors in continuous mode.
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          stopListening();
+          showError("Microphone access denied. Allow it in your browser settings.");
+        } else if (e.error === 'network') {
+          stopListening();
+          showError("Speech service unreachable. Use http://localhost (not file://).");
+        } else if (e.error === 'no-speech' || e.error === 'aborted') {
+          // Transient — let onend handle restart.
+        } else {
+          showError(`Microphone error: ${e.error}`);
+        }
+      };
+
+      // Auto-restart on end so continuous mode survives Chrome's auto-stops.
+      recognition.onend = () => {
+        if (!isListening) return;
+        try { recognition.start(); } catch(_) { /* already running, ignore */ }
+      };
+      return true;
+    }
+
+    // ─── Pending-match scheduler ──────────────────────────────────────────────
+    let pendingMatchTimer = null;
+    function scheduleMatch(text) {
+      if (pendingMatchTimer) clearTimeout(pendingMatchTimer);
+      pendingMatchTimer = setTimeout(() => {
+        pendingMatchTimer = null;
+        if (!isListening) return;       // user tapped stop in the gap
+        findMatch(text);
+      }, 500);
+    }
+    function cancelPendingMatch() {
+      if (pendingMatchTimer) { clearTimeout(pendingMatchTimer); pendingMatchTimer = null; }
+    }
+
+    // ─── Listening ────────────────────────────────────────────────────────────
+    function toggleListening() {
+      if (isListening) stopListening();
+      else if (recognition || initRecognition()) startListening();
+    }
+    $("orbWrap").addEventListener('click', toggleListening);
+    $("orbWrap").addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleListening(); }
+    });
+    $("micPillBtn").addEventListener('click', toggleListening);
+
+    // Pre-grants mic permission via getUserMedia so Chrome doesn't show a
+    // chip every time SpeechRecognition starts. Resolved once per page-load.
+    let micGrantedPromise = null;
+    function ensureMicPermission() {
+      if (micGrantedPromise) return micGrantedPromise;
+      micGrantedPromise = (async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Release the tracks immediately — we only needed the permission.
+          stream.getTracks().forEach(t => t.stop());
+          return true;
+        } catch (e) {
+          micGrantedPromise = null; // allow retry on next click
+          throw e;
+        }
+      })();
+      return micGrantedPromise;
+    }
+
+    async function startListening() {
+      hideError();
+
+      try {
+        await ensureMicPermission();
+      } catch (e) {
+        showError("Microphone access denied. Allow it in your browser settings.");
+        return;
+      }
+
+      isListening = true;
+      try { recognition.start(); }
+      catch(e) { recognition = null; if (initRecognition()) recognition.start(); }
+      setOrbState('listening');
+      setStatus('Listening — tap orb to stop', 'listening');
+      setTranscript('');
+    }
+    function stopListening() {
+      isListening = false;
+      cancelPendingMatch();
+      try { recognition && recognition.stop(); } catch(e) {}
+      // Don't clear orb if processing/playing took over
+      if ($("orbWrap").classList.contains('listening')) setOrbState('');
+      if ($("status").classList.contains('listening')) setStatus('Tap the orb to start listening', 'muted');
+    }
+
+    // ─── UI helpers ───────────────────────────────────────────────────────────
+    function setOrbState(state) {
+      const el = $("orbWrap");
+      el.classList.remove('listening', 'processing', 'playing');
+      if (state) el.classList.add(state);
+    }
+    function setStatus(text, cls = 'muted') {
+      const el = $("status");
+      el.textContent = text;
+      el.className = 'status ' + cls;
+    }
+    function setTranscript(text) {
+      $("transcript").textContent = text || '';
+    }
+    function showError(msg) {
+      const el = $("error");
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideError() { $("error").style.display = 'none'; }
+
+    // ─── Matching ─────────────────────────────────────────────────────────────
+    async function findMatch(transcript) {
+      setOrbState('processing');
+      setStatus('Thinking…', 'processing');
+      $("result").classList.add('visible');
+      $("resultName").innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+      $("resultReason").textContent = '';
+      $("playBtn").style.display = 'none';
+      $("sourceBtn").style.display = 'none';
+
+      // Hard-wired laugh shortcut: skip AI entirely when laughter is present.
+      if (isLaughing(transcript)) {
+        const i = idxOf("goofy-ahh-laugh-1668034461376");
+        if (i >= 0) {
+          showResult(SOUNDS[i], "Heard you laughing — laugh track engaged.", transcript);
+          return;
+        }
+      }
+
+      const list = SOUNDS.map(s => `- slug: "${s.slug}" | name: "${s.name}" | trigger: ${s.trigger}`).join('\n');
+      let matched = null;
+      let reason = '';
+
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 500,
+            system: `You are a witty meme sound effect DJ. Classify what the user said into ONE of the trigger conditions below, then fire that sound.
+
+When two triggers could apply, follow this priority:
+Vine Boom > Bruh > Are You Serious Right Now > Wet Fart Meme > Goofy Ahh Sounds > everything else.
+When in doubt, prefer the funnier or more unexpected pick.
+
+Respond with ONLY valid JSON, no markdown:
+{"soundSlug": "exact-slug-from-list", "reason": "punchy reason under 18 words"}`,
+            messages: [{ role: "user", content: `User said: "${transcript}"\n\nAvailable sounds:\n${list}` }]
+          })
+        });
+        if (!res.ok) throw new Error('API ' + res.status);
+        const data = await res.json();
+        let raw = (data.content || []).map(b => b.type === 'text' ? b.text : '').join('').replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(raw);
+        matched = SOUNDS.find(s => s.slug === parsed.soundSlug);
+        reason = parsed.reason || '';
+      } catch (e) {
+        ({ matched, reason } = keywordMatch(transcript));
+      }
+
+      if (!matched) matched = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
+      showResult(matched, reason || trollFallback(transcript, matched), transcript);
+    }
+
+    // Witty 1-sentence trolling reasons used only when nothing actually matched.
+    function trollFallback(text, sound) {
+      const snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
+      const trolls = [
+        `Your words had zero useful keywords, so I ran them through the vibes oracle and out came "${sound.name}."`,
+        `Couldn't parse a single coherent thought, but your aura screams "${sound.name}" — don't @ me.`,
+        `Nothing you said matched anything in the library, so this is the AI's most honest read of your energy.`,
+        `Honestly, "${snippet}" was unhinged enough that "${sound.name}" felt like the only emotionally accurate response.`,
+        `Ran your input through three vibe filters and the matcher shrugged — take "${sound.name}" as a personality assessment.`,
+        `If your words made sense I'd have picked something else; they didn't, and "${sound.name}" judging you fixes that.`,
+        `My keyword matcher quit halfway through reading that, so "${sound.name}" is here to fill the void.`,
+        `Couldn't tell if that was a sentence or a cry for help, but "${sound.name}" is the diagnosis either way.`,
+      ];
+      return trolls[Math.floor(Math.random() * trolls.length)];
+    }
+
+    // Index sounds by slug for readable rule lookups
+    const idxOf = (slug) => SOUNDS.findIndex(s => s.slug === slug);
+
+    // Detect actual laughter — runs before everything else.
+    // Matches: haha, hehe, hahaha, ha ha, he he he, lol, lmao, lmfao, rofl,
+    //          giggle, chuckle, cracking up, dying laughing, etc.
+    const LAUGH_RE = /(?:\bha+\s*){2,}|(?:\bhe+\s*){2,}|\b(lol+|lmao+|lmfao+|rofl|lulz?)\b|\b(giggl|chuckl|laugh)\w*|\bcracking up\b|\bdying( laughing)?\b/i;
+
+    function isLaughing(text) {
+      return LAUGH_RE.test(text);
+    }
+
+    // Score a single sound against the user's text.
+    //   sound-name mention   = 12 pts (e.g. user literally says "rizz")
+    //   phrase match         =  5 pts each
+    //   keyword (whole word) =  1 pt each
+    function scoreSound(text, sound) {
+      const padded = ' ' + text.toLowerCase().replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ') + ' ';
+      let score = 0;
+
+      const nameLower = ' ' + sound.name.toLowerCase() + ' ';
+      if (padded.includes(nameLower)) score += 12;
+
+      for (const phrase of (sound.phrases || [])) {
+        if (padded.includes(' ' + phrase + ' ') ||
+            padded.includes(' ' + phrase) ||
+            padded.includes(phrase + ' ')) {
+          score += 5;
+        }
+      }
+
+      const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      for (const kw of (sound.keywords || [])) {
+        // Trailing "*" means stem match — e.g. "crash*" hits crash, crashed, crashing.
+        if (kw.endsWith('*')) {
+          const stem = kw.slice(0, -1);
+          if (new RegExp('\\b' + escape(stem) + '\\w*', 'i').test(text)) score += 1;
+        } else {
+          if (new RegExp('\\b' + escape(kw) + '\\b', 'i').test(text)) score += 1;
+        }
+      }
+
+      // Favorite boost — only counts when the sound has at least one organic
+      // hit, so favorites win narrow ties without overriding stronger matches
+      // and without firing when no signal exists at all.
+      if (score > 0 && sound.boost) score += sound.boost;
+
+      return score;
+    }
+
+    // Pick the highest-scoring sound. Ties are broken by SOUNDS array order,
+    // which matches the sounds.md priority list.
+    function bestKeywordMatch(text) {
+      let bestIdx = -1, bestScore = 0;
+      SOUNDS.forEach((s, i) => {
+        const sc = scoreSound(text, s);
+        if (sc > bestScore) { bestScore = sc; bestIdx = i; }
+      });
+      return bestIdx >= 0 ? SOUNDS[bestIdx] : null;
+    }
+
+    function keywordMatch(text) {
+      // Tier 0: explicit laugh detection — always wins.
+      if (isLaughing(text)) {
+        const i = idxOf("goofy-ahh-laugh-1668034461376");
+        if (i >= 0) return { matched: SOUNDS[i], reason: "Heard you laughing — laugh track engaged." };
+      }
+
+      // Tier 1: keyword/phrase scoring across every sound.
+      const best = bestKeywordMatch(text);
+      if (best) return { matched: best, reason: best.reason };
+
+      // Tier 2: sentiment-based fallback — much better than pure random.
+      const sentiment = sentimentMatch(text);
+      if (sentiment) return sentiment;
+
+      // Nothing scored — caller falls back to random.
+      return { matched: null, reason: '' };
+    }
+
+    // Lightweight sentiment routing for inputs that miss every keyword.
+    // Picks a sound that matches the emotional tone instead of going random.
+    function sentimentMatch(text) {
+      const t = ' ' + text.toLowerCase() + ' ';
+      const has = (re) => re.test(t);
+
+      const buckets = [
+        // [test, sound slug, reason]
+        [/\b(happy|excited|stoked|thrilled|pumped|hyped|love|loved|loving|great|good|nice|wonderful|yay|yes+|woohoo|let'?s? go)\b/,
+         "ahhhhh-1663858639507", "Felt the joy in your message — hype response engaged."],
+        [/\b(sad|cry|crying|cried|tear|tears|depress\w*|miserable|lonely|alone|hurt|hurts|miss|missed|missing|broken|heartbroken)\b/,
+         "sad-violin-1642637531345", "Feels detected — cueing the violins."],
+        [/\b(angry|mad|furious|pissed|rage|raging|hate|hated|annoyed|frustrat\w*)\b/,
+         "get-out-tuco-1713706345464", "Big mad energy — kicking it out, Tuco-style."],
+        [/\b(what|why|how|huh|confus\w*|wait|weird|strange|wtf)\b/,
+         "wait-what-1669059468952", "Couldn't tell what you meant — neither could I."],
+        [/\b(hungry|starving|food|eat|ate|eating|snack|meal|breakfast|lunch|dinner)\b/,
+         "minecraft-eating-1671129126604", "Heard food — *munch munch*."],
+        [/\b(buy|bought|paid|pay|spend|spent|expensive|cheap|broke|cash|money|dollar|price|cost)\b/,
+         "apple-pay-1747322427448", "Money words detected — Apple Pay says yes."],
+        [/\b(error|bug|broke|broken|crash\w*|glitch\w*|fail\w*|stopped working|not working)\b/,
+         "error-1669062015100", "Sounds like something broke."],
+        [/\b(scared|afraid|terrif\w*|creep\w*|spook\w*|haunt\w*|ghost|nightmare)\b/,
+         "fnaf-music-box-1-minute-1684885636708", "Spooky vibes — something is watching."],
+        [/\b(boring|bored|meh|whatever|fine|tired|exhaust\w*)\b/,
+         "we-do-not-care-1670161970808", "Felt that flat energy — we do not care."],
+      ];
+
+      for (const [re, slug, reason] of buckets) {
+        if (has(re)) {
+          const i = idxOf(slug);
+          if (i >= 0) return { matched: SOUNDS[i], reason };
+        }
+      }
+      return null;
+    }
+
+    // ─── Show & play result ───────────────────────────────────────────────────
+    function showResult(sound, reason, transcript) {
+      const bars = '<span class="audio-bars" id="audioBars"><span></span><span></span><span></span><span></span></span>';
+      $("resultName").innerHTML = bars + ' <span>' + escapeHTML(sound.name) + '</span>';
+      $("resultReason").textContent = reason;
+      $("playBtn").style.display = 'inline-flex';
+      $("sourceBtn").style.display = 'inline-flex';
+      $("sourceBtn").href = PAGE_BASE + sound.slug;
+      $("playBtn").onclick = () => playSound(sound);
+
+      playSound(sound);
+      addHistory(transcript, sound, reason);
+    }
+
+    const MAX_PLAY_MS = 4000;
+    let playTimer = null;
+
+    function playSound(sound) {
+      if (currentAudio) { try { currentAudio.pause(); } catch(e){} }
+      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+
+      const audio = new Audio(SOUND_BASE + sound.file);
+      audio.preload = 'auto';
+      currentAudio = audio;
+
+      const bars = $("audioBars");
+      if (bars) bars.classList.add('playing');
+      setOrbState('playing');
+      setStatus('Now playing…', 'muted');
+
+      const onDone = () => {
+        if (bars) bars.classList.remove('playing');
+        if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+        // If we're still in continuous-listening mode, return the orb to its
+        // listening look instead of going idle.
+        if (isListening) {
+          setOrbState('listening');
+          setStatus('Listening — tap orb to stop', 'listening');
+        } else {
+          setOrbState('');
+          setStatus('Tap the orb to start listening', 'muted');
+        }
+      };
+      audio.addEventListener('ended', onDone);
+      audio.addEventListener('error', () => { onDone(); showError("Couldn't load that sound."); });
+
+      audio.play().then(() => {
+        // Hard cap at MAX_PLAY_MS (4s).
+        playTimer = setTimeout(() => {
+          try { audio.pause(); audio.currentTime = 0; } catch(e){}
+          onDone();
+        }, MAX_PLAY_MS);
+      }).catch(err => {
+        onDone();
+        console.warn('Autoplay blocked:', err);
+      });
+    }
+
+    // ─── History ──────────────────────────────────────────────────────────────
+    function addHistory(transcript, sound, reason) {
+      history.unshift({ transcript, sound, reason });
+      if (history.length > 6) history.pop();
+      renderHistory();
+    }
+    function renderHistory() {
+      const card = $("historyCard");
+      if (!history.length) { card.classList.remove('visible'); return; }
+      card.classList.add('visible');
+      $("historyList").innerHTML = history.map((item, i) => `
+        <button class="history-item" data-i="${i}">
+          <span class="history-icon"></span>
+          <span class="history-text">
+            <span class="history-quote">${escapeHTML(item.transcript)}</span>
+            <span class="history-sound">${escapeHTML(item.sound.name)}</span>
+          </span>
+        </button>`).join('');
+      $("historyList").querySelectorAll('.history-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const item = history[+el.dataset.i];
+          if (!item) return;
+          setTranscript(item.transcript);
+          showResult(item.sound, item.reason, item.transcript);
+        });
+      });
+    }
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ─── Text input ───────────────────────────────────────────────────────────
+    $("textForm").addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = $("textInput").value.trim();
+      if (!text) return;
+      if (isListening) stopListening();
+      hideError();
+      setTranscript(text);
+      $("textInput").value = '';
+      findMatch(text);
+    });
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    initRecognition();
+  </script>
+</body>
+</html>
